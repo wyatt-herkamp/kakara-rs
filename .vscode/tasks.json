@@ -1,0 +1,48 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "cargo",
+            "command": "run",
+            "args": [
+                "--package=kakara-rs",
+                "--features",
+                "debug"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "options": {
+                "env": {
+                    "RUST_BACKTRACE": "1",
+                    "RUST_LOG": "debug,wgpu_core=warn,naga=warn",
+                    "MINECRAFT_ASSETS": "D:\\MinecraftShit\\assets"
+                }
+            },
+            "label": "rust: Run Game"
+        },
+        {
+            "type": "cargo",
+            "command": "test",
+            "args": [
+                "--package=kakara-rs",
+                "--bin=kakara-rs",
+                "--",
+                "engine::voxel::texture_atlas::tests::test_from_minecraft_assets",
+                "--exact",
+                "--nocapture"
+            ],
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "options": {
+                "env": {
+                    "RUST_BACKTRACE": "1",
+                    "RUST_LOG": "debug,wgpu_core=warn,naga=warn",
+                    "MINECRAFT_ASSETS": "D:\\MinecraftShit\\assets"
+                }
+            },
+            "label": "Test Texture Atlas"
+        }
+    ]
+}
