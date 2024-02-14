@@ -21,7 +21,10 @@ mod texture;
 mod voxel;
 use crate::engine::{
     render_types::{obj_model, BasicModelVertex, LightUniform, Vertex},
-    voxel::texture_atlas::{TextureAtlasBuildError, TextureAtlasBuilder},
+    voxel::{
+        texture_atlas::{TextureAtlasBuildError, TextureAtlasBuilder},
+        CubeTextures,
+    },
 };
 
 use self::{
@@ -220,8 +223,10 @@ impl State {
 
                     let position = cgmath::Vector3 { x, y: 0.0, z };
 
-                    let rotation =
-                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(0.0));
+                    let rotation = cgmath::Quaternion::from_axis_angle(
+                        position.normalize(),
+                        cgmath::Deg(0f32),
+                    );
 
                     BlockInstance { position, rotation }
                 })
@@ -353,7 +358,7 @@ impl State {
             &queue,
             &texture_bind_group_layout,
             texture_atlas,
-            "mossy_stone_bricks.png",
+            CubeTextures::test_textures(),
         )?;
         let state = Self {
             window,

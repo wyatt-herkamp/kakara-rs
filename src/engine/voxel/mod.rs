@@ -1,5 +1,6 @@
-use std::{borrow::Cow, iter, path::Path};
+use std::{borrow::Cow, iter, ops::Index, path::Path};
 
+use ahash::{HashMap, HashMapExt};
 use tracing::debug;
 use wgpu::util::DeviceExt as _;
 
@@ -16,7 +17,7 @@ use super::{
 pub mod cube_data;
 pub mod texture_atlas;
 pub mod voxel_pipeline;
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Face {
     Front,
     Back,
@@ -124,18 +125,16 @@ impl Model for Cube {
 
     type MaterialId = NoMaterialId;
 }
-pub fn block_vertices(texture_locations: UVCoordinates) -> Vec<BasicModelVertex> {
+pub fn block_vertices(texture_locations: LoadedCubeTexture) -> Vec<BasicModelVertex> {
     debug!("Texture locations: {:?}", texture_locations);
-    cube_data::CUBE_NORMALS
-        .iter()
-        .enumerate()
-        .zip(cube_data::CUBE_VERTICES.iter())
-        .map(|((index, &normal), &vertex)| BasicModelVertex {
-            position: vertex,
-            tex_coords: texture_locations[index].to_array(),
-            normal,
-        })
-        .collect()
+    let mut vertices = Vec::with_capacity(6 * 4);
+    cube_data::FRONT_FACE.push_raw_vertecies(&mut vertices, texture_locations[Face::Front]);
+    cube_data::BACK_FACE.push_raw_vertecies(&mut vertices, texture_locations[Face::Back]);
+    cube_data::TOP_FACE.push_raw_vertecies(&mut vertices, texture_locations[Face::Top]);
+    cube_data::BOTTOM_FACE.push_raw_vertecies(&mut vertices, texture_locations[Face::Bottom]);
+    cube_data::LEFT_FACE.push_raw_vertecies(&mut vertices, texture_locations[Face::Left]);
+    cube_data::RIGHT_FACE.push_raw_vertecies(&mut vertices, texture_locations[Face::Right]);
+    vertices
 }
 
 pub fn add_block_model(
@@ -143,15 +142,14 @@ pub fn add_block_model(
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
     texture_atlas: TextureAtlas,
-    texture: &str,
+    texture: CubeTextures<'_>,
 ) -> anyhow::Result<Cube> {
+    let texture = texture
+        .get_coordinates(&texture_atlas)
+        .expect("Texture not found");
     let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Cube Vertex Buffer"),
-        contents: bytemuck::cast_slice(&block_vertices(
-            texture_atlas
-                .get_uv_for_texture(texture)
-                .expect("Texture not found"),
-        )),
+        contents: bytemuck::cast_slice(&block_vertices(texture)),
         usage: wgpu::BufferUsages::VERTEX,
     });
     let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -197,4 +195,102 @@ pub fn add_block_model(
         mesh: cube_mesh,
         material: cube_material,
     })
+}
+
+pub struct CubeDefinition {}
+
+pub enum CubeTextures<'a> {
+    SingleTexture(Cow<'a, str>),
+    MultiTexture(HashMap<Face, Cow<'a, str>>),
+}
+impl CubeTextures<'_> {
+    pub fn test_textures() -> Self {
+        let mut textures = HashMap::with_capacity(6);
+        textures.insert(Face::Front, Cow::Borrowed("mossy_stone_bricks.png"));
+        textures.insert(Face::Back, Cow::Borrowed("end_stone_bricks.png"));
+        textures.insert(Face::Top, Cow::Borrowed("deepslate_bricks.png"));
+        textures.insert(Face::Bottom, Cow::Borrowed("stone_bricks.png"));
+        textures.insert(Face::Left, Cow::Borrowed("cracked_stone_bricks.png"));
+        textures.insert(Face::Right, Cow::Borrowed("polished_blackstone_bricks.png"));
+        CubeTextures::MultiTexture(textures)
+    }
+    pub fn get_coordinates(&self, texture_atlas: &TextureAtlas) -> Option<LoadedCubeTexture> {
+        match self {
+            CubeTextures::SingleTexture(texture) => {
+                let uv = texture_atlas.get_uv_for_texture(texture)?;
+                Some(LoadedCubeTexture::SingleTexture(uv))
+            }
+            CubeTextures::MultiTexture(textures) => {
+                if textures.len() == 6 {
+                    let front = texture_atlas.get_uv_for_texture(textures.get(&Face::Front)?)?;
+                    let back = texture_atlas.get_uv_for_texture(textures.get(&Face::Back)?)?;
+                    let top = texture_atlas.get_uv_for_texture(textures.get(&Face::Top)?)?;
+                    let bottom = texture_atlas.get_uv_for_texture(textures.get(&Face::Bottom)?)?;
+                    let left = texture_atlas.get_uv_for_texture(textures.get(&Face::Left)?)?;
+                    let right = texture_atlas.get_uv_for_texture(textures.get(&Face::Right)?)?;
+
+                    Some(LoadedCubeTexture::MultiTextureAllSet {
+                        front,
+                        back,
+                        top,
+                        bottom,
+                        left,
+                        right,
+                    })
+                } else {
+                    todo!("Handle this case")
+                }
+            }
+        }
+    }
+}
+
+impl<'a> From<&'a str> for CubeTextures<'a> {
+    fn from(texture: &'a str) -> Self {
+        CubeTextures::SingleTexture(Cow::Borrowed(texture))
+    }
+}
+#[derive(Debug)]
+pub enum LoadedCubeTexture {
+    SingleTexture(UVCoordinates),
+    MultiTexture {
+        textures: HashMap<Face, UVCoordinates>,
+        default_texture: UVCoordinates,
+    },
+    MultiTextureAllSet {
+        front: UVCoordinates,
+        back: UVCoordinates,
+        top: UVCoordinates,
+        bottom: UVCoordinates,
+        left: UVCoordinates,
+        right: UVCoordinates,
+    },
+}
+impl Index<Face> for LoadedCubeTexture {
+    type Output = UVCoordinates;
+
+    fn index(&self, index: Face) -> &Self::Output {
+        match self {
+            LoadedCubeTexture::SingleTexture(texture) => texture,
+            LoadedCubeTexture::MultiTexture {
+                textures,
+                default_texture,
+            } => textures.get(&index).unwrap_or(default_texture),
+            LoadedCubeTexture::MultiTextureAllSet {
+                front,
+                back,
+                top,
+                bottom,
+                left,
+                right,
+            } => match index {
+                Face::Front => front,
+                Face::Back => back,
+                Face::Top => top,
+                Face::Bottom => bottom,
+                Face::Left => left,
+                Face::Right => right,
+            },
+        }
+    }
 }

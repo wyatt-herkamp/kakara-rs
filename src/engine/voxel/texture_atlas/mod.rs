@@ -147,7 +147,7 @@ pub struct TextureAtlas {
     pub texture_width: u32,
     pub texture_height: u32,
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct UVCoordinates {
     pub top_left: Vec2,
     pub top_right: Vec2,
@@ -238,8 +238,8 @@ impl TextureAtlas {
         Some(UVCoordinates {
             top_left: Vec2::new(x, y),
             top_right: Vec2::new(x + width, y),
-            bottom_left: Vec2::new(x + width, y + height),
-            bottom_right: Vec2::new(x, y + height),
+            bottom_left: Vec2::new(x, y + height),
+            bottom_right: Vec2::new(x + width, y + height),
         })
     }
 }

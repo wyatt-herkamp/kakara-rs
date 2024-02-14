@@ -16,7 +16,8 @@
                 "env": {
                     "RUST_BACKTRACE": "1",
                     "RUST_LOG": "debug,wgpu_core=warn,naga=warn",
-                    "MINECRAFT_ASSETS": "D:\\MinecraftShit\\assets"
+                    "MINECRAFT_ASSETS": "D:\\MinecraftShit\\assets",
+                    "WGPU_BACKEND": "gl"
                 }
             },
             "label": "rust: Run Game"
