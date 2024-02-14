@@ -211,7 +211,7 @@ impl CubeTextures<'_> {
         textures.insert(Face::Top, Cow::Borrowed("deepslate_bricks.png"));
         textures.insert(Face::Bottom, Cow::Borrowed("stone_bricks.png"));
         textures.insert(Face::Left, Cow::Borrowed("cracked_stone_bricks.png"));
-        textures.insert(Face::Right, Cow::Borrowed("polished_blackstone_bricks.png"));
+        textures.insert(Face::Right, Cow::Borrowed("mossy_stone_bricks.png"));
         CubeTextures::MultiTexture(textures)
     }
     pub fn get_coordinates(&self, texture_atlas: &TextureAtlas) -> Option<LoadedCubeTexture> {

@@ -39,9 +39,9 @@ pub static CUBE_INDICES: &[u32] = &[
     // bottom
     12, 13, 14, 14, 13, 15,
     // Left
-    16, 18, 17, 16, 17, 18,
+    16, 17, 18, 17, 19, 18,
     // Right
-    20, 21, 22, 22, 21, 23
+    20, 22, 21, 22, 23, 21
 ];
 
 pub static FRONT_FACE: UntexturedQuad = UntexturedQuad {
@@ -94,13 +94,9 @@ pub static BOTTOM_FACE: UntexturedQuad = UntexturedQuad {
 };
 pub static LEFT_FACE: UntexturedQuad = UntexturedQuad {
     position: [
-        // Touches Front Bottom Left (Top Left)
-        [-1f32, -1f32, 1f32],
-        // Touches Front Top Left (Top Right)
         [-1f32, 1f32, 1f32],
-        // Touches Back Top Left (Bottom Right)
         [-1f32, 1f32, -1f32],
-        // Touches Back Bottom Left (Bottom Left)
+        [-1f32, -1f32, 1f32],
         [-1f32, -1f32, -1f32],
     ],
     normal: [[-1f32, 0f32, 0f32]; 4],
@@ -109,8 +105,8 @@ pub static LEFT_FACE: UntexturedQuad = UntexturedQuad {
 pub static RIGHT_FACE: UntexturedQuad = UntexturedQuad {
     position: [
         [1f32, 1f32, 1f32],
-        [1f32, -1f32, 1f32],
         [1f32, 1f32, -1f32],
+        [1f32, -1f32, 1f32],
         [1f32, -1f32, -1f32],
     ],
     normal: [[1f32, 0f32, 0f32]; 4],

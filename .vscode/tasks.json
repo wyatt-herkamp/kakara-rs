@@ -17,7 +17,7 @@
                     "RUST_BACKTRACE": "1",
                     "RUST_LOG": "debug,wgpu_core=warn,naga=warn",
                     "MINECRAFT_ASSETS": "D:\\MinecraftShit\\assets",
-                    "WGPU_BACKEND": "gl"
+                    "WGPU_BACKEND": "dx12"
                 }
             },
             "label": "rust: Run Game"
