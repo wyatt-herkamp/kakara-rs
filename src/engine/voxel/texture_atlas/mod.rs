@@ -2,6 +2,7 @@ use std::{
     io,
     ops::Index,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use ahash::{HashMap, HashMapExt};
@@ -9,6 +10,7 @@ use glam::{U64Vec2, Vec2};
 use image::{DynamicImage, GenericImage, GenericImageView};
 use thiserror::Error;
 use tracing::{debug, warn};
+pub mod cube_textures;
 #[derive(Debug, Error)]
 pub enum TextureAtlasBuildError {
     #[error("No file name provided")]
@@ -107,13 +109,16 @@ impl TextureAtlasBuilder {
             }
         }
         debug!("Created texture atlas with {} textures", textures.len());
-        Ok(TextureAtlas {
+        let textures = Arc::new(TextureAtlasInfo {
             textures,
-            texture: result_image,
             width: image_width,
             height: image_height,
             texture_width: self.max_width,
             texture_height: self.max_height,
+        });
+        Ok(TextureAtlas {
+            info: textures,
+            texture: result_image,
         })
     }
 }
@@ -140,20 +145,60 @@ impl RawImageReference {
 }
 #[derive(Debug, PartialEq)]
 pub struct TextureAtlas {
-    pub textures: HashMap<String, TextureRef>,
     pub texture: DynamicImage,
+    pub info: Arc<TextureAtlasInfo>,
+}
+impl AsRef<TextureAtlasInfo> for TextureAtlas {
+    fn as_ref(&self) -> &TextureAtlasInfo {
+        &self.info
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextureAtlasInfo {
+    pub textures: HashMap<String, TextureRef>,
     pub width: u32,
     pub height: u32,
     pub texture_width: u32,
     pub texture_height: u32,
 }
-#[derive(Debug, PartialEq, Clone, Copy)]
+impl TextureAtlasInfo {
+    pub fn get_texture(&self, name: &str) -> Option<&TextureRef> {
+        self.textures.get(name)
+    }
+    /// Gets the UV coordinates for a texture
+    /// 4 UV coordinates are returned in the following order:
+    /// TOP LEFT, TOP RIGHT, BOTTOM LEFT, BOTTOM RIGHT
+    pub fn get_uv_for_texture(&self, name: &str) -> Option<UVCoordinates> {
+        // width: Is the width of the texture atlas
+        // height: Is the height of the texture atlas
+        // x: Is the x coordinate of the texture in the atlas
+        // y: Is the y coordinate of the texture in the atlas
+        // texture_width: is the size of every slot in the atlas
+        // texture_height: is the size of every slot in the atlas
+
+        let texture = self.textures.get(name)?;
+
+        let x = texture.x as f32 / self.width as f32;
+        let y = texture.y as f32 / self.height as f32;
+        let width = texture.width as f32 / self.width as f32;
+        let height = texture.height as f32 / self.height as f32;
+
+        Some(UVCoordinates {
+            top_left: Vec2::new(x, y),
+            top_right: Vec2::new(x + width, y),
+            bottom_left: Vec2::new(x, y + height),
+            bottom_right: Vec2::new(x + width, y + height),
+        })
+    }
+}
+#[derive(Debug, PartialEq, Clone, Copy, Default)]
 pub struct UVCoordinates {
     pub top_left: Vec2,
     pub top_right: Vec2,
     pub bottom_left: Vec2,
     pub bottom_right: Vec2,
 }
+
 impl Index<usize> for UVCoordinates {
     type Output = Vec2;
 
@@ -214,36 +259,8 @@ impl TextureAtlas {
             .save(path)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
-    pub fn get_texture(&self, name: &str) -> Option<&TextureRef> {
-        self.textures.get(name)
-    }
-    /// Gets the UV coordinates for a texture
-    /// 4 UV coordinates are returned in the following order:
-    /// TOP LEFT, TOP RIGHT, BOTTOM LEFT, BOTTOM RIGHT
-    pub fn get_uv_for_texture(&self, name: &str) -> Option<UVCoordinates> {
-        // width: Is the width of the texture atlas
-        // height: Is the height of the texture atlas
-        // x: Is the x coordinate of the texture in the atlas
-        // y: Is the y coordinate of the texture in the atlas
-        // texture_width: is the size of every slot in the atlas
-        // texture_height: is the size of every slot in the atlas
-
-        let texture = self.textures.get(name)?;
-
-        let x = texture.x as f32 / self.width as f32;
-        let y = texture.y as f32 / self.height as f32;
-        let width = texture.width as f32 / self.width as f32;
-        let height = texture.height as f32 / self.height as f32;
-
-        Some(UVCoordinates {
-            top_left: Vec2::new(x, y),
-            top_right: Vec2::new(x + width, y),
-            bottom_left: Vec2::new(x, y + height),
-            bottom_right: Vec2::new(x + width, y + height),
-        })
-    }
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TextureRef {
     pub name: String,
     pub width: u32,

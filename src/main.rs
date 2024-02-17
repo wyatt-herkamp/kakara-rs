@@ -1,14 +1,16 @@
+#![feature(hash_extract_if)]
 use std::time::Instant;
 
 use engine::State;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 use winit::{
     event::*,
-    event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
+    event_loop::{EventLoop},
     keyboard::{KeyCode, PhysicalKey},
     window::WindowBuilder,
 };
 pub mod engine;
+pub mod game;
 pub mod world;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -24,7 +26,6 @@ async fn main() -> anyhow::Result<()> {
 }
 
 pub async fn run() -> anyhow::Result<()> {
-    
     let event_loop = EventLoop::new()?;
     let window = WindowBuilder::new()
         .with_title("Kakara.rs")
@@ -40,7 +41,7 @@ pub async fn run() -> anyhow::Result<()> {
         match event {
             Event::AboutToWait => {
                 if !window_loop.exiting() {
-                    state.window.request_redraw();
+                    state.window().request_redraw();
                 }
             }
         Event::WindowEvent {

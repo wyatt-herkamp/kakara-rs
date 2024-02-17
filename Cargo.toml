@@ -43,6 +43,12 @@ tokio = { version = "1", features = ["full"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 renderdoc = { version = "0.11.0", features = ["ci"], optional = true }
 tinyvec = "1"
+noise = "0.8"
+flume = { version = "0.11" }
+deadpool = { git = "https://github.com/bikeshedder/deadpool.git", features = [
+    "rt_tokio_1",
+] }
+bevy_ecs = "0.12"
 [dependencies.image]
 version = "0.24"
 default-features = false

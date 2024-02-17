@@ -8,60 +8,53 @@ use winit::{
     keyboard::PhysicalKey,
     window::Window,
 };
-const NUM_INSTANCES_PER_ROW: u32 = 10;
-const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-    0.0,
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-);
+
 mod camera;
 mod model;
 mod render_types;
 mod texture;
-mod voxel;
-use crate::engine::{
-    render_types::{obj_model, BasicModelVertex, LightUniform, Vertex},
-    voxel::{
-        texture_atlas::{TextureAtlasBuildError, TextureAtlasBuilder},
-        CubeTextures,
-    },
-};
+pub mod voxel;
+use crate::engine::render_types::{BasicModelVertex, LightUniform, Vertex};
 
-use self::{
-    render_types::{
-        obj_model::OBJModel,
-        renderer::{DrawLight as _, DrawModel as _},
-    },
-    voxel::{texture_atlas::TextureAtlas, Cube},
-};
+use {camera::CameraUniform, render_types::RawInstance};
 
-use {
-    camera::CameraUniform,
-    render_types::{BlockInstance, RawInstance},
-};
+pub trait SubRenderer {
+    fn update(&mut self, base_state: &mut WGPUStateBase, dt: std::time::Duration);
+
+    /// Any Debug Info that should be displayed
+    fn debug_info(&self) -> Vec<(String, String)>;
+
+    fn render<'pass>(
+        &'pass mut self,
+        wgpu: &'pass mut WGPUStateBase,
+        render_pass: &'pass mut wgpu::RenderPass,
+    ) -> Result<(), wgpu::SurfaceError>;
+}
+/// A Shared Type for all renderers
+pub struct WGPUStateBase {
+    pub surface: wgpu::Surface<'static>,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+    pub config: wgpu::SurfaceConfiguration,
+    pub size: winit::dpi::PhysicalSize<u32>,
+    pub window: Arc<Window>,
+}
+
 pub struct State {
-    surface: wgpu::Surface<'static>,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
+    pub base: WGPUStateBase,
     render_pipeline: wgpu::RenderPipeline,
-    camera: camera::Camera,                          // UPDATED!
-    projection: camera::Projection,                  // NEW!
-    pub camera_controller: camera::CameraController, // UPDATED!
+    camera: camera::Camera,
+    projection: camera::Projection,
+    pub camera_controller: camera::CameraController,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
-    instances: Vec<BlockInstance>,
-    #[allow(dead_code)]
-    instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
     pub size: winit::dpi::PhysicalSize<u32>,
     light_uniform: LightUniform,
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
     light_render_pipeline: wgpu::RenderPipeline,
-    pub cube: Cube,
-    pub window: Arc<Window>,
 }
 
 fn create_render_pipeline(
@@ -214,35 +207,6 @@ impl State {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        const SPACE_BETWEEN: f32 = 4.0;
-        let instances = (0..NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-
-                    let position = cgmath::Vector3 { x, y: 0.0, z };
-
-                    let rotation = cgmath::Quaternion::from_axis_angle(
-                        position.normalize(),
-                        cgmath::Deg(0f32),
-                    );
-
-                    BlockInstance { position, rotation }
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let instance_data = instances
-            .iter()
-            .map(BlockInstance::to_raw)
-            .collect::<Vec<_>>();
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
         let camera_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
@@ -352,30 +316,23 @@ impl State {
                 shader,
             )
         };
-        let texture_atlas = TextureAtlasBuilder::load_from_minecraft_assets()?;
-        let cube = voxel::add_block_model(
-            &device,
-            &queue,
-            &texture_bind_group_layout,
-            texture_atlas,
-            CubeTextures::test_textures(),
-        )?;
-        let state = Self {
-            window,
+        let base = WGPUStateBase {
             surface,
             device,
             queue,
             config,
+            size,
+            window,
+        };
+        let state = Self {
+            base,
             render_pipeline,
-            cube,
             camera,
             projection,
             camera_controller,
             camera_buffer,
             camera_bind_group,
             camera_uniform,
-            instances,
-            instance_buffer,
             depth_texture,
             size,
             light_uniform,
@@ -387,17 +344,22 @@ impl State {
     }
 
     pub fn window(&self) -> &Window {
-        &self.window
+        &self.base.window
     }
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.projection.resize(new_size.width, new_size.height);
             self.size = new_size;
-            self.config.width = new_size.width;
-            self.config.height = new_size.height;
-            self.surface.configure(&self.device, &self.config);
-            self.depth_texture =
-                texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
+            self.base.config.width = new_size.width;
+            self.base.config.height = new_size.height;
+            self.base
+                .surface
+                .configure(&self.base.device, &self.base.config);
+            self.depth_texture = texture::Texture::create_depth_texture(
+                &self.base.device,
+                &self.base.config,
+                "depth_texture",
+            );
         }
     }
 
@@ -426,7 +388,7 @@ impl State {
         self.camera_controller.update_camera(&mut self.camera, dt);
         self.camera_uniform
             .update_view_proj(&self.camera, &self.projection);
-        self.queue.write_buffer(
+        self.base.queue.write_buffer(
             &self.camera_buffer,
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
@@ -438,7 +400,7 @@ impl State {
             (cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(1.0))
                 * old_position)
                 .into();
-        self.queue.write_buffer(
+        self.base.queue.write_buffer(
             &self.light_buffer,
             0,
             bytemuck::cast_slice(&[self.light_uniform]),
@@ -446,16 +408,17 @@ impl State {
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let output = self.surface.get_current_texture()?;
+        let output = self.base.surface.get_current_texture()?;
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
+        let mut encoder =
+            self.base
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Render Encoder"),
+                });
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -485,23 +448,23 @@ impl State {
                 timestamp_writes: None,
             });
 
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            render_pass.set_pipeline(&self.light_render_pipeline);
-            render_pass.draw_light_model(
-                &self.cube,
-                &self.camera_bind_group,
-                &self.light_bind_group,
-            );
+            //render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
+            //render_pass.set_pipeline(&self.light_render_pipeline);
+            //render_pass.draw_light_model(
+            //   &self.cube,
+            //   &self.camera_bind_group,
+            //    &self.light_bind_group,
+            //);
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.draw_model_instanced(
-                &self.cube,
-                0..self.instances.len() as u32,
-                &self.camera_bind_group,
-                &self.light_bind_group,
-            );
+            //render_pass.draw_model_instanced(
+            //    &self.cube,
+            //    0..self.instances.len() as u32,
+            //    &self.camera_bind_group,
+            //    &self.light_bind_group,
+            //);
         }
-        self.queue.submit(iter::once(encoder.finish()));
+        self.base.queue.submit(iter::once(encoder.finish()));
         output.present();
 
         Ok(())
