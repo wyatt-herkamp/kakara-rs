@@ -12,23 +12,27 @@ use winit::{
 mod camera;
 mod model;
 mod render_types;
+pub mod shapes;
 mod texture;
+pub mod utils;
 pub mod voxel;
-use crate::engine::render_types::{BasicModelVertex, LightUniform, Vertex};
+use crate::engine::render_types::{BasicModelVertex, LightUniform, ShaderVertexType};
 
-use {camera::CameraUniform, render_types::RawInstance};
+use self::{
+    utils::create_render_pipeline,
+    voxel::{
+        voxel_pipeline::DrawChunk,
+        voxel_state::{VoxelRenderer, VoxelRendererConfig},
+    },
+};
+
+use camera::CameraUniform;
 
 pub trait SubRenderer {
     fn update(&mut self, base_state: &mut WGPUStateBase, dt: std::time::Duration);
 
     /// Any Debug Info that should be displayed
     fn debug_info(&self) -> Vec<(String, String)>;
-
-    fn render<'pass>(
-        &'pass mut self,
-        wgpu: &'pass mut WGPUStateBase,
-        render_pass: &'pass mut wgpu::RenderPass,
-    ) -> Result<(), wgpu::SurfaceError>;
 }
 /// A Shared Type for all renderers
 pub struct WGPUStateBase {
@@ -42,7 +46,6 @@ pub struct WGPUStateBase {
 
 pub struct State {
     pub base: WGPUStateBase,
-    render_pipeline: wgpu::RenderPipeline,
     camera: camera::Camera,
     projection: camera::Projection,
     pub camera_controller: camera::CameraController,
@@ -55,70 +58,12 @@ pub struct State {
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
     light_render_pipeline: wgpu::RenderPipeline,
+    pub voxel_renderer: VoxelRenderer,
 }
 
-fn create_render_pipeline(
-    device: &wgpu::Device,
-    layout: &wgpu::PipelineLayout,
-    color_format: wgpu::TextureFormat,
-    depth_format: Option<wgpu::TextureFormat>,
-    vertex_layouts: &[wgpu::VertexBufferLayout],
-    shader: wgpu::ShaderModuleDescriptor,
-) -> wgpu::RenderPipeline {
-    let shader = device.create_shader_module(shader);
-
-    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some(&format!("{:?}", shader)),
-        layout: Some(layout),
-        vertex: wgpu::VertexState {
-            module: &shader,
-            entry_point: "vs_main",
-            buffers: vertex_layouts,
-        },
-        fragment: Some(wgpu::FragmentState {
-            module: &shader,
-            entry_point: "fs_main",
-            targets: &[Some(wgpu::ColorTargetState {
-                format: color_format,
-                blend: Some(wgpu::BlendState {
-                    alpha: wgpu::BlendComponent::REPLACE,
-                    color: wgpu::BlendComponent::REPLACE,
-                }),
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
-        }),
-        primitive: wgpu::PrimitiveState {
-            topology: wgpu::PrimitiveTopology::TriangleList,
-            strip_index_format: None,
-            front_face: wgpu::FrontFace::Ccw,
-            cull_mode: Some(wgpu::Face::Back),
-            // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-            polygon_mode: wgpu::PolygonMode::Fill,
-            // Requires Features::DEPTH_CLIP_CONTROL
-            unclipped_depth: false,
-            // Requires Features::CONSERVATIVE_RASTERIZATION
-            conservative: false,
-        },
-        depth_stencil: depth_format.map(|format| wgpu::DepthStencilState {
-            format,
-            depth_write_enabled: true,
-            depth_compare: wgpu::CompareFunction::Less,
-            stencil: wgpu::StencilState::default(),
-            bias: wgpu::DepthBiasState::default(),
-        }),
-        multisample: wgpu::MultisampleState {
-            count: 1,
-            mask: !0,
-            alpha_to_coverage_enabled: false,
-        },
-        // If the pipeline will be used with a multiview render pass, this
-        // indicates how many array layers the attachments will have.
-        multiview: None,
-    })
-}
 impl State {
     // Creating some of the wgpu types requires async code
-    pub async fn new(window: Window) -> anyhow::Result<Self> {
+    pub async fn new(window: Window, voxel_config: VoxelRendererConfig) -> anyhow::Result<Self> {
         let window = Arc::new(window);
         let size = window.inner_size();
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -146,9 +91,7 @@ impl State {
                 },
                 None, // Trace path
             )
-            .await
-            .unwrap();
-
+            .await?;
         let surface_caps = surface.get_capabilities(&adapter);
 
         let surface_format = surface_caps
@@ -169,30 +112,6 @@ impl State {
         };
 
         surface.configure(&device, &config);
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            });
-
-        // UPDATED!
         let camera = camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
         let projection =
             camera::Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
@@ -271,32 +190,6 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &texture_bind_group_layout,
-                    &camera_bind_group_layout,
-                    &light_bind_group_layout,
-                ],
-                push_constant_ranges: &[],
-            });
-
-        let render_pipeline = {
-            let shader = wgpu::ShaderModuleDescriptor {
-                label: Some("Normal Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
-            };
-            create_render_pipeline(
-                &device,
-                &render_pipeline_layout,
-                config.format,
-                Some(texture::Texture::DEPTH_FORMAT),
-                &[BasicModelVertex::desc(), RawInstance::desc()],
-                shader,
-            )
-        };
-
         let light_render_pipeline = {
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Light Pipeline Layout"),
@@ -324,9 +217,14 @@ impl State {
             size,
             window,
         };
+        let voxel_renderer = VoxelRenderer::new(
+            voxel_config,
+            &base,
+            &camera_bind_group_layout,
+            &light_bind_group_layout,
+        );
         let state = Self {
             base,
-            render_pipeline,
             camera,
             projection,
             camera_controller,
@@ -339,6 +237,7 @@ impl State {
             light_buffer,
             light_bind_group,
             light_render_pipeline,
+            voxel_renderer,
         };
         Ok(state)
     }
@@ -405,6 +304,7 @@ impl State {
             0,
             bytemuck::cast_slice(&[self.light_uniform]),
         );
+        self.voxel_renderer.update(&mut self.base, dt);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -455,14 +355,12 @@ impl State {
             //   &self.camera_bind_group,
             //    &self.light_bind_group,
             //);
-
-            render_pass.set_pipeline(&self.render_pipeline);
-            //render_pass.draw_model_instanced(
-            //    &self.cube,
-            //    0..self.instances.len() as u32,
-            //    &self.camera_bind_group,
-            //    &self.light_bind_group,
-            //);
+            render_pass.set_pipeline(&self.voxel_renderer.voxel_pipeline);
+            render_pass.draw_chunks(
+                &self.voxel_renderer,
+                &self.camera_bind_group,
+                &self.light_bind_group,
+            );
         }
         self.base.queue.submit(iter::once(encoder.finish()));
         output.present();

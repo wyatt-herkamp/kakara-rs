@@ -1,10 +1,14 @@
 use std::sync::Arc;
 
-use crate::world::{
-    position::{RawPosition, RawRotation},
-    World,
-};
+use flume::Sender;
 
+use crate::{
+    engine::voxel::voxel_state::ChunkUpdates,
+    world::{
+        position::{RawPosition, RawRotation},
+        World,
+    },
+};
 
 use self::blocks::BlockRegistery;
 pub mod blocks;
@@ -17,6 +21,7 @@ pub struct GameState {
 pub struct Game {
     pub block_registery: BlockRegistery,
     pub game_settings: GameSettings,
+    pub chunk_queue: Sender<ChunkUpdates>,
 }
 pub struct Player {
     pub position: RawPosition,

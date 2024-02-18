@@ -3,6 +3,7 @@ use std::sync::Arc;
 use ahash::{HashMap, HashMapExt};
 use flume::Sender;
 use noise::Perlin;
+use tracing::info;
 
 use crate::{
     engine::voxel::{chunk_mesh::RawChunkMesh, voxel_state::ChunkUpdates},
@@ -92,8 +93,9 @@ impl World {
                 // TODO no errors
                 let chunk = self.chunks.get_mut(&position).expect("Chunk not found");
                 let section = &mut chunk.sections[y];
+                println!("{:?}", section);
                 let section_position =
-                    BlockPosition::new(position.x * 16, (y as i8) * 16, position.z * 16);
+                    BlockPosition::new(position.x * 16, y as i64 * 16, position.z * 16);
 
                 if let Some(mesh) = self.meshes_being_rendered.get_mut(&section_position) {
                     if section.dirty {
@@ -122,6 +124,7 @@ impl World {
                 }
             }
         }
+        info!("Updated Meshes");
     }
 }
 

@@ -15,6 +15,9 @@ derive_more = { version = "1.0.0-beta.6", features = [
     "deref",
     "deref_mut",
     "from",
+    "index",
+    "index_mut",
+    "into_iterator",
 ], default-features = false }
 [package]
 name = "kakara-rs"
@@ -26,6 +29,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde.workspace = true
 winit = "0.29"
 tracing = "0.1"
 wgpu = "0.19"
@@ -48,7 +52,10 @@ flume = { version = "0.11" }
 deadpool = { git = "https://github.com/bikeshedder/deadpool.git", features = [
     "rt_tokio_1",
 ] }
-bevy_ecs = "0.12"
+bevy_ecs = "0.13"
+derive_builder = "0.20"
+profiling = "1.0"
+auto_impl = "1"
 [dependencies.image]
 version = "0.24"
 default-features = false

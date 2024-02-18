@@ -42,12 +42,12 @@ impl BlockRegistery {
         );
         self.index += 1;
     }
-    pub fn load_textures(&mut self, texture_atlas: &TextureAtlas) {
+    pub fn load_textures(&mut self) {
         for (_, block) in &self.blocks {
             let Some(textures) = block.textures.as_ref() else {
                 continue;
             };
-            let texture = textures.get_coordinates(texture_atlas);
+            let texture = textures.get_coordinates(&self.texture_atlas_info);
             if let Some(texture) = texture {
                 self.textures.insert(block.id, texture);
             }
@@ -57,6 +57,7 @@ impl BlockRegistery {
 pub fn create_block_registery(atlas: Arc<TextureAtlasInfo>) -> BlockRegistery {
     let mut registery = BlockRegistery::new(atlas);
     registery.register_block("air", None);
-    registery.register_block("dirt", Some("dirt.png".into()));
+    registery.register_block("stone_bricks", Some("stone_bricks.png".into()));
+    registery.load_textures();
     registery
 }

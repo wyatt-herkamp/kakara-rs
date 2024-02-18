@@ -9,13 +9,14 @@ use glam::Vec3;
 
 use crate::engine::render_types::BasicModelVertex;
 
-use super::{chunk_mesh::BlockVertex, texture_atlas::UVCoordinates};
+use super::{chunk_mesh::BlockVertex, texture_atlas::UVCoordinates, Face};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct UntexturedQuad {
     pub position: [[f32; 3]; 4],
     pub normal: [[f32; 3]; 4],
 }
+const CUBE_SIZE: f32 = 1f32;
 impl UntexturedQuad {
     pub fn into_raw_vertex(self, uv_coords: UVCoordinates) -> Vec<BasicModelVertex> {
         let mut vertices = Vec::new();
@@ -60,19 +61,9 @@ impl UntexturedQuad {
             },
         ]
     }
-    pub fn indicies(offset: u32) -> [u32; 6] {
-        [
-            0 + offset,
-            2 + offset,
-            1 + offset,
-            3 + offset,
-            1 + offset,
-            2 + offset,
-        ]
-    }
 
     pub fn push_indicies(indicies: &mut Vec<u32>, offset: u32) {
-        indicies.push(0 + offset);
+        indicies.push(offset);
         indicies.push(2 + offset);
         indicies.push(1 + offset);
         indicies.push(3 + offset);
@@ -99,8 +90,9 @@ impl Add<Vec3> for UntexturedQuad {
 }
 /// The base indicies for a quad
 pub static BASE_INDICIES: [u32; 6] = [0, 2, 1, 3, 1, 2];
-pub static FRONT_FACE: UntexturedQuad = UntexturedQuad {
+pub static NORTH_FACE: UntexturedQuad = UntexturedQuad {
     position: [
+        // Top Left
         // Top Left
         [-1f32, 1f32, 1f32],
         // Top Right
@@ -113,13 +105,16 @@ pub static FRONT_FACE: UntexturedQuad = UntexturedQuad {
     normal: [[0f32, 0f32, 1f32]; 4],
 };
 
-pub static BACK_FACE: UntexturedQuad = UntexturedQuad {
+pub static SOUTH_FACE: UntexturedQuad = UntexturedQuad {
     position: [
         // Top Left
         [-1f32, 1f32, -1f32],
-        [-1f32, -1f32, -1f32],
-        [1f32, -1f32, -1f32],
+        // Top Right
         [1f32, 1f32, -1f32],
+        // Bottom Left
+        [-1f32, -1f32, -1f32],
+        // Bottom Right
+        [1f32, -1f32, -1f32],
     ],
     normal: [[0f32, 0f32, -1f32]; 4],
 };
@@ -127,9 +122,10 @@ pub static BACK_FACE: UntexturedQuad = UntexturedQuad {
 pub static TOP_FACE: UntexturedQuad = UntexturedQuad {
     position: [
         [-1f32, 1f32, -1f32],
+        [1f32, 1f32, -1f32],
+        // Top
         [-1f32, 1f32, 1f32],
         [1f32, 1f32, 1f32],
-        [1f32, 1f32, -1f32],
     ],
     normal: [[0f32, 1f32, 0f32]; 4],
 };
@@ -137,28 +133,31 @@ pub static TOP_FACE: UntexturedQuad = UntexturedQuad {
 pub static BOTTOM_FACE: UntexturedQuad = UntexturedQuad {
     position: [
         [-1f32, -1f32, -1f32],
+        [1f32, -1f32, -1f32],
+        // Top
         [-1f32, -1f32, 1f32],
         [1f32, -1f32, 1f32],
-        [1f32, -1f32, -1f32],
     ],
     normal: [[0f32, -1f32, 0f32]; 4],
 };
 pub static WEST_FACE: UntexturedQuad = UntexturedQuad {
     position: [
-        [-1f32, 1f32, -1f32],
-        [-1f32, -1f32, -1f32],
-        [-1f32, -1f32, 1f32],
         [-1f32, 1f32, 1f32],
+        [-1f32, 1f32, -1f32],
+        [-1f32, -1f32, 1f32],
+        [-1f32, -1f32, -1f32],
     ],
     normal: [[-1f32, 0f32, 0f32]; 4],
 };
 
 pub static EAST_FACE: UntexturedQuad = UntexturedQuad {
     position: [
-        [-1f32, 1f32, -1f32],
+        [1f32, 1f32, 1f32],
+        [1f32, 1f32, -1f32],
         [1f32, -1f32, 1f32],
         [1f32, -1f32, -1f32],
-        [1f32, 1f32, -1f32],
     ],
     normal: [[1f32, 0f32, 0f32]; 4],
 };
+#[cfg(test)]
+mod tests {}

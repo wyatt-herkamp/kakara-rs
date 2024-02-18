@@ -1,3 +1,4 @@
+use glam::{Affine3A, Vec3};
 use strum::EnumIter;
 
 use self::cube_data::UntexturedQuad;
@@ -15,26 +16,12 @@ pub mod texture_atlas;
 pub mod voxel_pipeline;
 pub mod voxel_state;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumIter)]
-pub enum Face {
-    /// Face pointing towards the negative Z axis
-    North,
-    /// Face pointing towards the positive Z axis
-    South,
-    /// Face pointing towards the positive Y axis
-    Top,
-    /// Face pointing towards the negative Y axis
-    Bottom,
-    /// Face pointing towards the negative X axis
-    West,
-    /// Face pointing towards the positive X axis
-    East,
-}
+pub use super::shapes::cube::Face;
 impl Face {
     pub fn get_quad(&self) -> UntexturedQuad {
         match self {
-            Face::North => cube_data::FRONT_FACE,
-            Face::South => cube_data::BACK_FACE,
+            Face::North => cube_data::NORTH_FACE,
+            Face::South => cube_data::SOUTH_FACE,
             Face::Top => cube_data::TOP_FACE,
             Face::Bottom => cube_data::BOTTOM_FACE,
             Face::West => cube_data::WEST_FACE,

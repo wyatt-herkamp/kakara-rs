@@ -50,15 +50,12 @@ impl Chunk {
 
     pub(crate) fn generate(position: ChunkPosition, noise: &Perlin) -> Chunk {
         let mut chunk = Self::new(position);
-        for x in 0..16 {
-            for z in 0..16 {
-                let height = (noise.get([x as f64 / 16.0, z as f64 / 16.0]) * 16.0) as i32;
-                for y in 0..height {
-                    let position = BlockPosition::new(x as i64, y as i8, z as i64);
-                    chunk.set_block(position, 1);
-                }
-            }
-        }
+        // for x in 0..16 {
+        //     for z in 0..16 {
+        //         chunk.sections[0].block_store[(z << 4) | x] = 1.into();
+        //     }
+        // }
+        chunk.sections[0].block_store[0] = 1.into();
         chunk
     }
 }

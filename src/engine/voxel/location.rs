@@ -33,7 +33,7 @@ macro_rules! impl_voxel_location {
     ($t:ty as $a:ty) => {
         impl VoxelLocation for $t {
             fn from_index(index: usize) -> Self {
-                debug_assert!(index > 4095, "Index out of bounds: {}", index);
+                debug_assert!(index < 4096, "Index out of bounds: {}", index);
                 let x = index & 0xF;
                 let y = (index >> 8) & 0xF;
                 let z = (index >> 4) & 0xF;
@@ -44,7 +44,7 @@ macro_rules! impl_voxel_location {
                 let y = self.y as usize & 0xF;
                 let z = (self.z as usize & 0xF);
                 let result = (y << 8) | (z << 4) | x;
-                debug_assert!(result > 4095, "Index out of bounds: {}", result);
+                debug_assert!(result < 4096, "Index out of bounds: {}", result);
                 return result;
             }
             fn is_valid_position(&self) -> bool {
@@ -56,23 +56,42 @@ macro_rules! impl_voxel_location {
                 Self: Sized,
             {
                 let mut new = *self;
+               
                 match face {
                     Face::North => {
+                        if new.z == 15 as $a {
+                            return None;
+                        }
                         new.z += 1 as $a;
                     }
                     Face::South => {
+                        if new.z == 0 as $a {
+                            return None;
+                        }
                         new.z -= 1 as $a;
                     }
                     Face::West => {
+                        if new.x == 0 as $a {
+                            return None;
+                        }
                         new.x -= 1 as $a;
                     }
                     Face::East => {
+                        if new.x == 15 as $a {
+                            return None;
+                        }
                         new.x += 1 as $a;
                     }
                     Face::Top => {
+                        if new.y == 15 as $a {
+                            return None;
+                        }
                         new.y += 1 as $a;
                     }
                     Face::Bottom => {
+                        if new.y == 0 as $a {
+                            return None;
+                        }
                         new.y -= 1 as $a;
                     }
                 }

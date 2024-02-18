@@ -1,4 +1,4 @@
-use std::mem;
+use std::{mem, ops::Add};
 
 use bytemuck::{Pod, Zeroable};
 use glam::{UVec3, Vec3};
@@ -8,7 +8,7 @@ use wgpu::{
 };
 
 use crate::engine::{
-    render_types::Vertex,
+    render_types::ShaderVertexType,
     voxel::{cube_data::UntexturedQuad, VoxelLocation},
 };
 
@@ -93,7 +93,7 @@ impl Default for BlockVertex {
         }
     }
 }
-impl Vertex for BlockVertex {
+impl ShaderVertexType for BlockVertex {
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         use wgpu::VertexAttribute;
 
@@ -161,25 +161,29 @@ impl RawChunkMesh {
                 if let Some(next_voxel) = next_voxel {
                     // Opaque is visible
                     if !next_voxel.visibility.is_opaque() && current_voxel.visibility.is_opaque() {
+                        println!("Face: {:?}  at {} is visible", face, coords);
                         faces.push(face);
                     }
+                } else {
+                    faces.push(face);
                 }
             }
-            if faces.len() > 0 {
+            if faces.len() > 0 && !current_voxel.visibility.is_empty() {
                 render_voxels.push(RenderVoxel {
                     voxel: current_voxel,
                     faces: faces,
                 });
             }
         }
+        let mut vertex_index = 0;
         // Calculate the vertexes and indicies for each render voxel
-        for (index, render_voxel) in render_voxels.iter().enumerate() {
-            let offset = (index * 4) as u32;
+        for (render_voxel) in render_voxels.iter() {
             for face in &render_voxel.faces {
                 // TODO Support Custom Models
                 let face = render_voxel.voxel.face(*face);
                 self.vertices.extend_from_slice(&face);
-                UntexturedQuad::push_indicies(&mut self.indices, offset);
+                UntexturedQuad::push_indicies(&mut self.indices, vertex_index);
+                vertex_index += 4;
             }
         }
     }
@@ -189,6 +193,7 @@ pub struct ChunkMesh {
     pub position: UVec3,
     pub vertices: wgpu::Buffer,
     pub indices: wgpu::Buffer,
+    pub number_of_indices: u32,
 }
 impl ChunkMesh {
     /// Converts a RawChunkMesh into a ChunkMesh this will allocate the memory on the GPU
@@ -208,6 +213,22 @@ impl ChunkMesh {
             position: raw_mesh.position,
             vertices: vertex_buffer,
             indices: index_buffer,
+            number_of_indices: raw_mesh.indices.len() as u32,
         }
+    }
+
+    pub fn render<'pass>(
+        &'pass self,
+        render_pass: &'pass mut wgpu::RenderPass<'pass>,
+        texture: &'pass crate::engine::texture::Texture,
+        light_bind_group: &'pass wgpu::BindGroup,
+        camera_bind_group: &'pass wgpu::BindGroup,
+    ) {
+        render_pass.set_vertex_buffer(0, self.vertices.slice(..));
+        render_pass.set_index_buffer(self.indices.slice(..), wgpu::IndexFormat::Uint32);
+        //render_pass.set_bind_group(0, &material.get_bind_group(), &[]);
+        render_pass.set_bind_group(1, camera_bind_group, &[]);
+        render_pass.set_bind_group(2, light_bind_group, &[]);
+        render_pass.draw_indexed(0..self.number_of_indices, 0, 0..1);
     }
 }

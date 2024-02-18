@@ -1,5 +1,5 @@
 use derive_more::From;
-use glam::{I64Vec3, Vec3};
+use glam::{I64Vec3, UVec3, Vec3};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, From)]
 pub struct ChunkPosition {
@@ -14,12 +14,18 @@ impl ChunkPosition {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, From, Hash)]
 pub struct BlockPosition {
     pub x: i64,
-    pub y: i8,
+    pub y: i64,
     pub z: i64,
 }
 impl BlockPosition {
-    pub fn new(x: i64, y: i8, z: i64) -> Self {
+    pub fn new(x: i64, y: i64, z: i64) -> Self {
         Self { x, y, z }
+    }
+}
+
+impl From<BlockPosition> for UVec3 {
+    fn from(pos: BlockPosition) -> Self {
+        UVec3::new(pos.x as u32, pos.y as u32, pos.z as u32)
     }
 }
 impl From<BlockPosition> for I64Vec3 {
@@ -41,7 +47,7 @@ impl BlockPosition {
         }
     }
     pub fn section(&self) -> usize {
-        (self.y as usize >> 4) - 1
+        (self.y as usize >> 4)
     }
     /// TODO: this could be broken. It was written by AI
     /// The relative_block should be a 0-4095 value for the array of blocks in a section
@@ -59,13 +65,13 @@ impl BlockPosition {
         let z = (relative_block >> 4) & 0xF;
         Self {
             x: x as i64,
-            y: y as i8,
+            y: y as i64,
             z: z as i64,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct RawPosition {
     pub x: f64,
     pub y: f64,
@@ -107,10 +113,15 @@ impl From<(f64, f64, f64)> for RawPosition {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct RawRotation {
     pub yaw: f32,
     pub pitch: f32,
+}
+impl RawRotation {
+    pub fn new(yaw: f32, pitch: f32) -> Self {
+        Self { yaw, pitch }
+    }
 }
 
 impl Into<[f32; 2]> for RawRotation {

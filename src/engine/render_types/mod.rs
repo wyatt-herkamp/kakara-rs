@@ -4,7 +4,7 @@ use std::{borrow::Cow, fmt::Debug};
 pub mod obj_model;
 pub mod renderer;
 
-pub trait Vertex {
+pub trait ShaderVertexType {
     fn desc() -> wgpu::VertexBufferLayout<'static>;
 }
 
@@ -16,7 +16,7 @@ pub struct BasicModelVertex {
     pub normal: [f32; 3],
 }
 
-impl Vertex for BasicModelVertex {
+impl ShaderVertexType for BasicModelVertex {
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
         wgpu::VertexBufferLayout {
@@ -59,7 +59,7 @@ pub struct RawInstance {
     model: [[f32; 4]; 4],
     normal: [[f32; 3]; 3],
 }
-impl Vertex for RawInstance {
+impl ShaderVertexType for RawInstance {
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
         wgpu::VertexBufferLayout {

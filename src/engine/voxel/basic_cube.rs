@@ -98,8 +98,8 @@ impl Model for Cube {
 pub fn block_vertices(texture_locations: LoadedCubeTexture) -> Vec<BasicModelVertex> {
     debug!("Texture locations: {:?}", texture_locations);
     let mut vertices = Vec::with_capacity(6 * 4);
-    cube_data::FRONT_FACE.push_raw_vertecies(&mut vertices, texture_locations[Face::North]);
-    cube_data::BACK_FACE.push_raw_vertecies(&mut vertices, texture_locations[Face::South]);
+    cube_data::NORTH_FACE.push_raw_vertecies(&mut vertices, texture_locations[Face::North]);
+    cube_data::SOUTH_FACE.push_raw_vertecies(&mut vertices, texture_locations[Face::South]);
     cube_data::TOP_FACE.push_raw_vertecies(&mut vertices, texture_locations[Face::Top]);
     cube_data::BOTTOM_FACE.push_raw_vertecies(&mut vertices, texture_locations[Face::Bottom]);
     cube_data::WEST_FACE.push_raw_vertecies(&mut vertices, texture_locations[Face::West]);
@@ -121,7 +121,7 @@ pub fn add_block_model(
     }
 
     let texture = texture
-        .get_coordinates(&texture_atlas)
+        .get_coordinates(&texture_atlas.as_ref())
         .expect("Texture not found");
     let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Cube Vertex Buffer"),

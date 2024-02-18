@@ -4,7 +4,7 @@ use ahash::HashMap;
 
 use crate::engine::voxel::Face;
 
-use super::{TextureAtlas, UVCoordinates};
+use super::{TextureAtlas, TextureAtlasInfo, UVCoordinates};
 
 #[derive(Debug)]
 pub enum CubeTextures<'a> {
@@ -13,32 +13,20 @@ pub enum CubeTextures<'a> {
     Transparent,
 }
 impl CubeTextures<'_> {
-    pub fn get_coordinates(&self, texture_atlas: &TextureAtlas) -> Option<LoadedCubeTexture> {
+    pub fn get_coordinates(&self, texture_atlas: &TextureAtlasInfo) -> Option<LoadedCubeTexture> {
         match self {
             CubeTextures::SingleTexture(texture) => {
-                let uv = texture_atlas.as_ref().get_uv_for_texture(texture)?;
+                let uv = texture_atlas.get_uv_for_texture(texture)?;
                 Some(LoadedCubeTexture::SingleTexture(uv))
             }
             CubeTextures::MultiTexture(textures) => {
                 if textures.len() == 6 {
-                    let front = texture_atlas
-                        .as_ref()
-                        .get_uv_for_texture(textures.get(&Face::North)?)?;
-                    let back = texture_atlas
-                        .as_ref()
-                        .get_uv_for_texture(textures.get(&Face::South)?)?;
-                    let top = texture_atlas
-                        .as_ref()
-                        .get_uv_for_texture(textures.get(&Face::Top)?)?;
-                    let bottom = texture_atlas
-                        .as_ref()
-                        .get_uv_for_texture(textures.get(&Face::Bottom)?)?;
-                    let left = texture_atlas
-                        .as_ref()
-                        .get_uv_for_texture(textures.get(&Face::West)?)?;
-                    let right = texture_atlas
-                        .as_ref()
-                        .get_uv_for_texture(textures.get(&Face::East)?)?;
+                    let front = texture_atlas.get_uv_for_texture(textures.get(&Face::North)?)?;
+                    let back = texture_atlas.get_uv_for_texture(textures.get(&Face::South)?)?;
+                    let top = texture_atlas.get_uv_for_texture(textures.get(&Face::Top)?)?;
+                    let bottom = texture_atlas.get_uv_for_texture(textures.get(&Face::Bottom)?)?;
+                    let left = texture_atlas.get_uv_for_texture(textures.get(&Face::West)?)?;
+                    let right = texture_atlas.get_uv_for_texture(textures.get(&Face::East)?)?;
 
                     Some(LoadedCubeTexture::MultiTextureAllSet {
                         front,
