@@ -4,7 +4,7 @@ use ahash::HashMap;
 
 use crate::engine::voxel::Face;
 
-use super::{TextureAtlas, TextureAtlasInfo, UVCoordinates};
+use super::{TextureAtlasInfo, UVCoordinates};
 
 #[derive(Debug)]
 pub enum CubeTextures<'a> {

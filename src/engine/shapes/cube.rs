@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-use crate::engine::voxel::LoadedCubeTexture;
+use crate::engine::voxel::{LoadedCubeTexture, UVCoordinates};
 
 use super::{complex_shape::SizedComplexShape, Quad, Shape, Vertex};
 use glam::{Affine3A, Vec3};
@@ -35,6 +35,30 @@ pub enum Face {
     East = 4,
     /// Face pointing towards the positive Z axis
     South = 5,
+}
+impl Face {
+    pub fn normal(&self) -> [f32; 3] {
+        match self {
+            Face::North => [0.0, 0.0, -1.0],
+            Face::Top => [0.0, 1.0, 0.0],
+            Face::Bottom => [0.0, -1.0, 0.0],
+            Face::West => [-1.0, 0.0, 0.0],
+            Face::East => [1.0, 0.0, 0.0],
+            Face::South => [0.0, 0.0, 1.0],
+        }
+    }
+    pub fn opposite(&self) -> Face {
+        match self {
+            Face::North => Face::South,
+            Face::Top => Face::Bottom,
+            Face::Bottom => Face::Top,
+            Face::West => Face::East,
+            Face::East => Face::West,
+            Face::South => Face::North,
+        }
+    }
+
+
 }
 impl From<Face> for usize {
     #[inline]
@@ -99,7 +123,7 @@ impl Cube {
             Vec3::new(x_right, y_down, z_front + small),
             Vec3::new(x_left, y_down, z_front + small),
             loaded_cube_texture[Face::South],
-            [0.0, 0.0, -1.0].into(),
+            Face::South.normal().into(),
         );
 
         // Back is facing towards the positive Z axis (North).
@@ -109,27 +133,27 @@ impl Cube {
             Vec3::new(x_left, y_down, z_back - small),
             Vec3::new(x_right, y_down, z_back - small),
             loaded_cube_texture[Face::North],
-            [0.0, 0.0, 1.0].into(),
+            Face::North.normal().into(),
         );
 
-        // Top is facing towards the positive Y axis (Up).
+        // Top is facing towards the positive Y axis (Top).
         let top_quad = Quad::new_with_normal(
             Vec3::new(x_right, y_up + small, z_back),
             Vec3::new(x_left, y_up + small, z_back),
             Vec3::new(x_right, y_up + small, z_front),
             Vec3::new(x_left, y_up + small, z_front),
             loaded_cube_texture[Face::Top],
-            [0.0, 1.0, 0.0].into(),
+            Face::Top.normal().into(),
         );
 
-        // Bottom is facing towards the negative Y axis (Down).
+        // Bottom is facing towards the negative Y axis (Bottom).
         let bottom_quad = Quad::new_with_normal(
             Vec3::new(x_left, y_down - small, z_back),
             Vec3::new(x_right, y_down - small, z_back),
             Vec3::new(x_left, y_down - small, z_front),
             Vec3::new(x_right, y_down - small, z_front),
             loaded_cube_texture[Face::Bottom],
-            [0.0, -1.0, 0.0].into(),
+            Face::Bottom.normal().into(),
         );
 
         // Left is facing towards the negative X axis (West).
@@ -139,7 +163,7 @@ impl Cube {
             Vec3::new(x_left - small, y_down, z_front),
             Vec3::new(x_left - small, y_down, z_back),
             loaded_cube_texture[Face::West],
-            [-1.0, 0.0, 0.0].into(),
+            Face::West.normal().into(),
         );
 
         // Right is facing towards the positive X axis (East).
@@ -149,7 +173,7 @@ impl Cube {
             Vec3::new(x_right + small, y_down, z_back),
             Vec3::new(x_right + small, y_down, z_front),
             loaded_cube_texture[Face::East],
-            [1.0, 0.0, 0.0].into(),
+            Face::East.normal().into(),
         );
         let shape = SizedComplexShape::with_opt_transform(
             [

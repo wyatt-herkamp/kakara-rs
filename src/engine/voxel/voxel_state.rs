@@ -8,7 +8,7 @@ use super::{
     TextureAtlas,
 };
 use flume::{Receiver, Sender};
-use glam::UVec3;
+use glam::{I64Vec3, UVec3};
 use wgpu::PipelineLayout;
 
 #[derive(Debug)]
@@ -16,7 +16,7 @@ pub enum ChunkUpdates {
     /// Adds a chunk to the renderer
     Add(RawChunkMesh),
     /// Removes a chunk from the renderer
-    Remove(UVec3),
+    Remove(I64Vec3),
     /// Updates a chunk in the renderer
     Update(RawChunkMesh),
 }

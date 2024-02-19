@@ -1,3 +1,4 @@
+use core::num;
 use std::{
     fmt::Debug,
     ops::{Index, IndexMut},
@@ -6,6 +7,7 @@ use std::{
 
 use glam::Vec3;
 use noise::{NoiseFn, Perlin};
+use rand::Rng;
 
 use crate::{
     engine::voxel::{
@@ -50,12 +52,19 @@ impl Chunk {
 
     pub(crate) fn generate(position: ChunkPosition, noise: &Perlin) -> Chunk {
         let mut chunk = Self::new(position);
-        // for x in 0..16 {
-        //     for z in 0..16 {
-        //         chunk.sections[0].block_store[(z << 4) | x] = 1.into();
-        //     }
-        // }
-        chunk.sections[0].block_store[0] = 1.into();
+        let mut rng = rand::thread_rng();
+
+        for x in 0..16 {
+            for z in 0..16 {
+                let number = rng.gen_range(0..6u32);
+                let height = (noise.get([x as f64 / 16.0, z as f64 / 16.0]) * 16.0) as i64 + 32;
+                for y in 0..height {
+                    let position = BlockPosition::new(x, y, z);
+
+                    chunk.set_block(position, number.into());
+                }
+            }
+        }
         chunk
     }
 }
@@ -132,6 +141,12 @@ impl Section {
             .iter()
             .filter(|b| !matches!(b, Block::Block(0)))
             .count()
+    }
+    pub fn contains_non_air_blocks(&self) -> bool {
+        self.block_store
+            .blocks
+            .iter()
+            .any(|b| !matches!(b, Block::Block(0)))
     }
     pub fn get_voxels(&self, game: Arc<Game>) -> Vec<Voxel> {
         let mut voxels = Vec::with_capacity(16 * 16 * 16);

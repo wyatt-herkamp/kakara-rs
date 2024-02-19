@@ -22,22 +22,20 @@ impl BlockPosition {
         Self { x, y, z }
     }
 }
-
-impl From<BlockPosition> for UVec3 {
-    fn from(pos: BlockPosition) -> Self {
-        UVec3::new(pos.x as u32, pos.y as u32, pos.z as u32)
-    }
+macro_rules! convert_position_type {
+    (
+        $from:ty => $to:ty as $as:ty
+    ) => {
+        impl From<$from> for $to {
+            fn from(pos: $from) -> Self {
+                Self::new(pos.x as $as, pos.y as $as, pos.z as $as)
+            }
+        }
+    };
 }
-impl From<BlockPosition> for I64Vec3 {
-    fn from(pos: BlockPosition) -> Self {
-        I64Vec3::new(pos.x, pos.y as i64, pos.z)
-    }
-}
-impl From<BlockPosition> for Vec3 {
-    fn from(pos: BlockPosition) -> Self {
-        Vec3::new(pos.x as f32, pos.y as f32, pos.z as f32)
-    }
-}
+convert_position_type!(BlockPosition => UVec3 as u32);
+convert_position_type!(BlockPosition => I64Vec3 as i64);
+convert_position_type!(BlockPosition => Vec3 as f32);
 
 impl BlockPosition {
     pub fn chunk(&self) -> ChunkPosition {

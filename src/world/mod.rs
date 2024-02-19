@@ -3,7 +3,7 @@ use std::sync::Arc;
 use ahash::{HashMap, HashMapExt};
 use flume::Sender;
 use noise::Perlin;
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::{
     engine::voxel::{chunk_mesh::RawChunkMesh, voxel_state::ChunkUpdates},
@@ -93,10 +93,18 @@ impl World {
                 // TODO no errors
                 let chunk = self.chunks.get_mut(&position).expect("Chunk not found");
                 let section = &mut chunk.sections[y];
-                println!("{:?}", section);
+
                 let section_position =
                     BlockPosition::new(position.x * 16, y as i64 * 16, position.z * 16);
-
+                debug!(
+                    "Chunk Position {:?} will be rendered with {} non air blocks",
+                    section_position,
+                    section.number_of_non_air_blocks()
+                );
+                if !section.contains_non_air_blocks() {
+                    debug!("Skipping section because it has no non air blocks");
+                    continue;
+                }
                 if let Some(mesh) = self.meshes_being_rendered.get_mut(&section_position) {
                     if section.dirty {
                         // Dirty section so rebuild the mesh
@@ -116,7 +124,10 @@ impl World {
                     sender.send(ChunkUpdates::Add(mesh)).unwrap();
                 } else {
                     // Basically the mesh is not built already so add it.
-                    let mesh = RawChunkMesh::build(section.get_voxels(game.clone()));
+                    let mesh = RawChunkMesh::build(
+                        section_position.into(),
+                        section.get_voxels(game.clone()),
+                    );
                     section.dirty = false;
                     self.meshes_being_rendered
                         .insert(section_position, mesh.clone());

@@ -1,4 +1,4 @@
-use std::sync::{Arc};
+use std::sync::Arc;
 
 use ahash::{HashMap, HashMapExt};
 
@@ -58,6 +58,14 @@ pub fn create_block_registery(atlas: Arc<TextureAtlasInfo>) -> BlockRegistery {
     let mut registery = BlockRegistery::new(atlas);
     registery.register_block("air", None);
     registery.register_block("stone_bricks", Some("stone_bricks.png".into()));
+    registery.register_block("dirt", Some("dirt.png".into()));
+    registery.register_block(
+        "cracked_stone_bricks",
+        Some("cracked_stone_bricks.png".into()),
+    );
+    registery.register_block("diamond_ore", Some("diamond_ore.png".into()));
+    registery.register_block("iron_ore", Some("iron_ore.png".into()));
+
     registery.load_textures();
     registery
 }

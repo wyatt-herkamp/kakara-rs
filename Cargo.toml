@@ -34,6 +34,7 @@ winit = "0.29"
 tracing = "0.1"
 wgpu = "0.19"
 ahash = "0.8"
+rand = "0.8"
 glam = { version = "0.25", features = ["bytemuck"] }
 bytemuck = { version = "1.14", features = ["derive"] }
 anyhow = "1.0"

@@ -1,3 +1,5 @@
+use tracing::debug;
+
 use super::voxel_state::VoxelRenderer;
 
 pub trait DrawChunk<'a> {
@@ -18,7 +20,9 @@ where
         camera_bind_group: &'b wgpu::BindGroup,
         light_bind_group: &'b wgpu::BindGroup,
     ) {
-        if let Some(chunk) = renderer.rendered_chunks.get(0) {
+        debug!("Rendering Chunks {:#?}", renderer.rendered_chunks.len());
+        for chunk in &renderer.rendered_chunks {
+            
             self.set_vertex_buffer(0, chunk.vertices.slice(..));
             self.set_index_buffer(chunk.indices.slice(..), wgpu::IndexFormat::Uint32);
             self.set_bind_group(0, &renderer.atlas_bind_group, &[]);

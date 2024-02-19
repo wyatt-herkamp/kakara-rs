@@ -1,4 +1,4 @@
-use glam::{U16Vec3, U64Vec3, UVec3, Vec3};
+use glam::{I64Vec3, U16Vec3, U64Vec3, UVec3, Vec3};
 
 use super::Face;
 
@@ -56,7 +56,7 @@ macro_rules! impl_voxel_location {
                 Self: Sized,
             {
                 let mut new = *self;
-               
+
                 match face {
                     Face::North => {
                         if new.z == 15 as $a {
@@ -108,3 +108,4 @@ impl_voxel_location!(UVec3 as u32);
 impl_voxel_location!(U64Vec3 as u64);
 impl_voxel_location!(U16Vec3 as u16);
 impl_voxel_location!(Vec3 as f32);
+impl_voxel_location!(I64Vec3 as i64);

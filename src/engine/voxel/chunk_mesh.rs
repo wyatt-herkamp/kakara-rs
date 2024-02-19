@@ -1,7 +1,7 @@
 use std::{mem, ops::Add};
 
 use bytemuck::{Pod, Zeroable};
-use glam::{UVec3, Vec3};
+use glam::{I64Vec3, IVec3, UVec3, Vec3};
 use strum::{EnumIs, IntoEnumIterator};
 use wgpu::{
     util::DeviceExt as _, vertex_attr_array, BufferAddress, VertexBufferLayout, VertexStepMode,
@@ -9,6 +9,7 @@ use wgpu::{
 
 use crate::engine::{
     render_types::ShaderVertexType,
+    shapes::{Quad, Vertex},
     voxel::{cube_data::UntexturedQuad, VoxelLocation},
 };
 
@@ -67,13 +68,14 @@ impl Voxel {
     ///
     /// # Note
     /// Should be checked that the face is visible
-    pub fn face(&self, face: Face) -> [BlockVertex; 4] {
+    pub fn face(&self, face: Face, chunk_position: Vec3) -> [BlockVertex; 4] {
         if self.visibility.is_empty() {
             unimplemented!("Empty Voxel")
         }
         let uv = self.textures.as_ref().map(|t| t[face]).unwrap_or_default();
-        let face = face.get_quad() + self.position;
-        face.as_block_voxel_array(uv)
+        let quad =
+            Quad::new_quad_from_face(face, self.position + chunk_position, Vec3::splat(1f32), uv);
+        BlockVertex::from_quad(quad)
     }
 }
 /// A visible voxel face in the world
@@ -83,6 +85,28 @@ pub struct BlockVertex {
     pub position: [f32; 3],
     pub normal: [f32; 3],
     pub uv: [f32; 2],
+}
+impl BlockVertex {
+    pub fn from_quad(quad: Quad) -> [BlockVertex; 4] {
+        [
+            BlockVertex::new_from_generic_vertex(quad.top_left),
+            BlockVertex::new_from_generic_vertex(quad.top_right),
+            BlockVertex::new_from_generic_vertex(quad.bottom_left),
+            BlockVertex::new_from_generic_vertex(quad.bottom_right),
+        ]
+    }
+    pub fn new_from_generic_vertex(generic_vertex: Vertex) -> Self {
+        let Vertex {
+            position,
+            normal,
+            uv,
+        } = generic_vertex;
+        Self {
+            position: position.into(),
+            normal: normal.into(),
+            uv: uv.into(),
+        }
+    }
 }
 impl Default for BlockVertex {
     fn default() -> Self {
@@ -112,7 +136,7 @@ impl ShaderVertexType for BlockVertex {
 }
 #[derive(Debug, Clone)]
 pub struct RawChunkMesh {
-    pub position: UVec3,
+    pub position: I64Vec3,
     pub vertices: Vec<BlockVertex>,
     pub indices: Vec<u32>,
 }
@@ -124,9 +148,9 @@ impl RawChunkMesh {
     }
     /// Builds a new chunk mesh from a list of voxels
     /// See the `rebuild` method for more info
-    pub fn build(voxels: Vec<Voxel>) -> RawChunkMesh {
+    pub fn build(position: I64Vec3, voxels: Vec<Voxel>) -> RawChunkMesh {
         let mut this = Self {
-            position: UVec3::new(0, 0, 0),
+            position: position,
             vertices: Vec::with_capacity(voxels.len() * 2),
             indices: Vec::with_capacity(voxels.len() * 3),
         };
@@ -138,7 +162,6 @@ impl RawChunkMesh {
     /// and rebuild them from the list of voxels
     /// A list of Voxels is 4096 elements long. So an XYZ coordinate can be converted to an index as long as it is within the range of 0-15
     /// For more info on Voxel Location see the [VoxelLocation] trait
-    ///
     pub fn rebuild(&mut self, voxels: Vec<Voxel>) {
         assert_eq!(
             voxels.len(),
@@ -148,7 +171,7 @@ impl RawChunkMesh {
         self.clear();
         let mut render_voxels = Vec::with_capacity(voxels.len());
         for index in 0..voxels.len() {
-            let coords: UVec3 = UVec3::from_index(index);
+            let coords: I64Vec3 = I64Vec3::from_index(index);
             let current_voxel = &voxels[index];
 
             let mut faces = Vec::with_capacity(6);
@@ -161,7 +184,6 @@ impl RawChunkMesh {
                 if let Some(next_voxel) = next_voxel {
                     // Opaque is visible
                     if !next_voxel.visibility.is_opaque() && current_voxel.visibility.is_opaque() {
-                        println!("Face: {:?}  at {} is visible", face, coords);
                         faces.push(face);
                     }
                 } else {
@@ -176,11 +198,16 @@ impl RawChunkMesh {
             }
         }
         let mut vertex_index = 0;
+        let chunk_position: Vec3 = Vec3::new(
+            self.position.x as f32,
+            self.position.y as f32,
+            self.position.z as f32,
+        );
         // Calculate the vertexes and indicies for each render voxel
-        for (render_voxel) in render_voxels.iter() {
+        for render_voxel in render_voxels.iter() {
             for face in &render_voxel.faces {
                 // TODO Support Custom Models
-                let face = render_voxel.voxel.face(*face);
+                let face = render_voxel.voxel.face(*face, chunk_position);
                 self.vertices.extend_from_slice(&face);
                 UntexturedQuad::push_indicies(&mut self.indices, vertex_index);
                 vertex_index += 4;
@@ -190,7 +217,7 @@ impl RawChunkMesh {
 }
 #[derive(Debug)]
 pub struct ChunkMesh {
-    pub position: UVec3,
+    pub position: I64Vec3,
     pub vertices: wgpu::Buffer,
     pub indices: wgpu::Buffer,
     pub number_of_indices: u32,
